@@ -1,0 +1,51 @@
+version: 2.1
+
+orbs:
+  docker: circleci/docker@2.6.0
+executors:
+  arm:
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
+jobs:
+  build:
+    executor: arm
+    steps:
+      - checkout
+      - docker/check
+      - docker/build:
+          image: mbuse0/vectory-migration
+          tag: ${CIRCLE_SHA1}
+          dockerfile: ./deployment/Dockerfile
+      - docker/push:
+          registry: docker.io 
+          image: mbuse0/vectory-migration
+          tag: ${CIRCLE_SHA1}
+  deploy:
+    executor: arm
+    steps:
+      - run:
+          name: Commit to GitHub
+          command: |
+            git clone git@github.com:MaikBuse/cloud-config.git
+            cd cloud-config
+
+            git config user.email "contact@maikbuse.com"
+            git config user.name "CircleCI Job"
+
+            IMAGE_TAG=${CIRCLE_SHA1}
+            rm -f helm/vectory/migration/Values.yaml
+            echo 'migration:' > helm/vectory/migration/Values.yaml
+            echo '  container:' >> helm/vectory/migration/Values.yaml
+            echo "    image: \"mbuse0/vectory-migration:$IMAGE_TAG\"" >> helm/vectory/migration/Values.yaml
+
+            git add helm/vectory/migration/Values.yaml
+            git commit -m "feat(vectory): CircleCI bump image of vectory-migration to tag $IMAGE_TAG"
+            git push origin main
+workflows:
+  build:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
