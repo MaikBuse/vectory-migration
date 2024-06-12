@@ -9,6 +9,6 @@ WORKDIR /app
 
 COPY ./migrations ./migrations
 
-ENTRYPOINT ["goose"]
+ENTRYPOINT ["/bin/bash", "-c"]
 
-CMD ["up"]
+CMD ["echo $DB_HOST && goose up"]
